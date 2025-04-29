@@ -1,0 +1,180 @@
+---
+title: "California Housing Dataset Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We will be examining the well known **California Housing dataset**
+
+The columns are:
+
+- `longitude`
+- `latitude`
+- `housing_median_age`
+- `total_rooms`
+- `total_bedrooms`
+- `population`
+- `households`
+- `median_income`
+- `ocean_proximity` *(categorical string data)*
+- `median_house_value`
+
+## 1. Importing and Exploring the Data
+
+```{r}
+library(tidyverse)
+
+url <- "https://ewan.my/datasets/housing.csv"
+df <- read_csv(url)
+```
+
+---
+
+Let's take a quick look at the first few rows and summary statistics of the dataset.
+
+```{r}
+head(df)
+
+summary(df)
+
+glimpse(df)
+```
+
+---
+
+## 2. Data Cleaning and Processing
+
+### 2.1 Checking for Missing Values
+
+We'll check if there are any missing values in the dataset, especially in columns like `total_bedrooms`.
+
+```{r}
+missing_values <- colSums(is.na(df))
+cat("Missing values in each column:\n")
+print(missing_values)
+```
+
+### 2.2 Handling Missing Values
+
+For columns with missing values (for example, `total_bedrooms`), you might decide to fill them with the median value, drop those rows, or apply another strategy.
+
+```{r}
+if (missing_values["total_bedrooms"] > 0) {
+  median_bedrooms <- median(df$total_bedrooms, na.rm = TRUE)
+  df$total_bedrooms <- ifelse(is.na(df$total_bedrooms), median_bedrooms, df$total_bedrooms)
+  cat("Filled missing values in 'total_bedrooms' with median:", median_bedrooms, "\n")
+}
+```
+
+### 2.3 Converting Categorical Data
+
+Since `ocean_proximity` is a string, you might want to encode it before running numerical analyses or machine learning algorithms. One common method is one-hot encoding.
+
+```{r}
+df_encoded <- df %>%
+  mutate(across(ocean_proximity, as.factor)) %>%
+  mutate(ocean_proximity = as.factor(ocean_proximity))
+
+ocean_dummies <- model.matrix(~ ocean_proximity - 1, data = df_encoded)
+colnames(ocean_dummies) <- paste0("ocean_", levels(df_encoded$ocean_proximity))
+
+df_encoded <- cbind(df_encoded, as.data.frame(ocean_dummies))
+
+cat("Columns after encoding:\n")
+colnames(df_encoded)
+```
+
+---
+
+## 3. Data Visualization
+
+### 3.1 Histogram of Housing Median Age
+
+Let's start with a histogram to understand the distribution of the `housing_median_age`.
+
+```{r}
+ggplot(df, aes(x = housing_median_age)) +
+  geom_histogram(bins = 20, color = "black", fill = "lightblue") +
+  labs(
+    title = "Distribution of Housing Median Age",
+    x = "Housing Median Age",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+```
+
+### 3.2 Scatter Plot: Median Income vs. Median House Value
+
+A scatter plot can be useful to observe potential relationships between `median_income` and `median_house_value`.
+
+```{r}
+ggplot(df, aes(x = median_income, y = median_house_value)) +
+  geom_point(alpha = 0.5) +
+  labs(
+    title = "Median Income vs. Median House Value",
+    x = "Median Income",
+    y = "Median House Value"
+  ) +
+  theme_minimal()
+```
+
+### 3.3 Geographical Plot: Locations by House Value
+
+For a more geographic perspective, you can create a scatter plot of the properties using `longitude` and `latitude`. You might color the points by `median_house_value`.
+
+```{r}
+ggplot(df, aes(x = longitude, y = latitude, color = median_house_value)) +
+  geom_point(alpha = 0.6) +
+  scale_color_viridis_c() +
+  labs(
+    title = "Geographical Distribution of House Values",
+    x = "Longitude",
+    y = "Latitude",
+    color = "Median House Value"
+  ) +
+  theme_minimal()
+```
+
+---
+
+## 4. Additional Analysis Ideas
+
+- **Relationship Analysis:** Consider plotting total rooms vs. population, or households vs. population.
+    
+- **Box Plots:** To understand the distribution within groups, use box plots for variables segmented by `ocean_proximity`.
+    
+- **Correlation Matrix:** Generate a heatmap to visualize the correlation between different numerical variables.
+    
+
+```{r}
+numeric_df <- df %>% select(where(is.numeric))
+corr_matrix <- cor(numeric_df, use = "complete.obs")
+cat("Correlation matrix:\n")
+print(corr_matrix)
+
+library(corrplot)
+corrplot(corr_matrix, method = "circle")
+```
+
+## 5. Machine learning analysis
+
+### 5.1 Linear Regression Model
+
+```{r}
+
+```
+
+### 5.2 Classification tree
+```{r}
+
+```
+
+### 5.3 Regression Tree
+```{r}
+
+```
+
+
