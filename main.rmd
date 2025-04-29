@@ -159,3 +159,20 @@ library(corrplot)
 corrplot(corr_matrix, method = "circle")
 ```
 
+
+## 5. Machine learning analysis
+
+### 5.1 Linear Regression Model
+
+```{r}
+```
+
+### 5.2 Classification tree
+```{r}
+```
+
+### 5.3 Regression Tree
+```{r}
+```
+
+
