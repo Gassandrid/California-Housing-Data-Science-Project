@@ -187,6 +187,14 @@ ggplot(ml_df, aes(x = predicted_lm, y = median_house_value)) +
   theme_minimal()
 ```
 
+**Why this method?**
+Linear regression is a fundamental technique used to model the relationship between a dependent variable (in this case, `median_house_value`) and one or more independent variables (such as `median_income`, `housing_median_age`, etc.). It assumes a linear relationship between the predictors and the response variable, making it interpretable and easy to implement.
+
+**Conclusions**
+The linear regression model shows that `median_income` has a strong positive relationship with `median_house_value`, indicating that as income increases, house values tend to increase as well. Interestingly, variables like total_rooms had a negative coefficient, possibly due to multicollinearity with households and population. The adjusted R-squared was about 0.5654, indicating that about 56.54% of the variation in house prices is explained by the selected predictors.
+
+
+
 ### 5.2 Classification tree
 ```{r}
 install.packages(rpart.plot)
@@ -212,6 +220,14 @@ rpart.plot(class_tree, type = 3, extra = 104, fallen.leaves = TRUE, main = "Clas
 
 ```
 
+**Why this method?**
+This classification tree was used to classify homes as either “High” or “Low” value based on whether they were above or below the median price. Classification trees are ideal for handling both categorical and numerical variables, and they produce easy-to-interpret, rule-based models. Since our data contains both categorical and numerical variables, a classification tree is a suitable choice.
+
+**Conclusions**
+The classification tree identified median_income and ocean_proximity as important variables. Homes located near the ocean or in higher-income areas were more likely to be classified as high value. This supports the idea that geographic location and socioeconomic status are key determinants of home value. The resulting tree provides an interpretable path to understand how features interact in determining class.
+
+
+
 ### 5.3 Regression Tree
 ```{r}
 # Fit a regression tree to predict house value
@@ -222,5 +238,11 @@ reg_tree <- rpart(median_house_value ~ median_income + housing_median_age + tota
 rpart.plot(reg_tree, type = 3, fallen.leaves = TRUE, main = "Regression Tree for Predicting Median House Value")
 
 ```
+
+**Why this method?**
+A regression tree models a continuous output (house value) but uses a decision-tree structure to capture nonlinear relationships and interactions between variables that linear regression might miss. Regression trees are able to illustrate a relationship that a linear model may not be able to. 
+
+**Conclusions**
+This regression tree reinforces our conclusion that `median_income` is a strong predictor of house value, as it appears early in the tree. The tree structure allows us to see how different ranges of `median_income` and other features lead to different predicted house values. The model captures complex interactions between variables, such as how `total_rooms` and `population` influence house values at different income levels.
 
 
