@@ -165,14 +165,66 @@ corrplot(corr_matrix, method = "circle")
 ### 5.1 Linear Regression Model
 
 ```{r}
+# Prepare data (drop any remaining NAs just in case)
+ml_df <- df_encoded %>%
+  select(-ocean_proximity) %>%
+  drop_na()
+
+# Linear regression using key numerical predictors
+lm_model <- lm(median_house_value ~ median_income + housing_median_age + total_rooms + total_bedrooms + population + households, data = ml_df)
+
+# View summary of the linear regression model
+summary(lm_model)
+
+# Add predictions
+ml_df$predicted_lm <- predict(lm_model)
+
+# Plot predicted vs actual
+ggplot(ml_df, aes(x = predicted_lm, y = median_house_value)) +
+  geom_point(alpha = 0.3) +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  labs(
+    title = "Linear Regression: Predicted vs Actual Median House Value",
+    x = "Predicted House Value",
+    y = "Actual House Value"
+  ) +
+  theme_minimal()
 ```
 
 ### 5.2 Classification tree
 ```{r}
+install.packages(rpart.plot)
+library(rpart)
+library(rpart.plot)
+
+# Create a binary variable for classification
+ml_df <- ml_df %>%
+  mutate(high_value = ifelse(median_house_value > median(median_house_value), "High", "Low"),
+         high_value = as.factor(high_value))
+
+# Fit a classification tree
+class_tree <- rpart(
+  high_value ~ median_income + total_rooms + population +
+    `ocean_NEAR BAY` + `ocean_<1H OCEAN` + `ocean_INLAND` + `ocean_NEAR OCEAN` + `ocean_ISLAND`,
+  data = ml_df,
+  method = "class"
+)
+
+
+# Plot the tree
+rpart.plot(class_tree, type = 3, extra = 104, fallen.leaves = TRUE, main = "Classification Tree for High vs Low Value Homes")
+
 ```
 
 ### 5.3 Regression Tree
 ```{r}
+# Fit a regression tree to predict house value
+reg_tree <- rpart(median_house_value ~ median_income + housing_median_age + total_rooms + total_bedrooms + population + households, 
+                  data = ml_df, method = "anova")
+
+# Plot the regression tree
+rpart.plot(reg_tree, type = 3, fallen.leaves = TRUE, main = "Regression Tree for Predicting Median House Value")
+
 ```
 
 
