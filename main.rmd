@@ -165,10 +165,6 @@ corrplot(corr_matrix, method = "circle")
 ### 5.1 Linear Regression Model
 
 ```{r}
-# Prepare data (drop any remaining NAs just in case)
-ml_df <- df_encoded %>%
-  select(-ocean_proximity) %>%
-  drop_na()
 
 # Linear regression using key numerical predictors
 lm_model <- lm(median_house_value ~ median_income + housing_median_age + total_rooms + total_bedrooms + population + households, data = ml_df)
