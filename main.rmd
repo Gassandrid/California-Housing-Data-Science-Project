@@ -7,25 +7,15 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-We will be examining the well known **California Housing dataset**
-
-The columns are:
-
-- `longitude`
-- `latitude`
-- `housing_median_age`
-- `total_rooms`
-- `total_bedrooms`
-- `population`
-- `households`
-- `median_income`
-- `ocean_proximity` *(categorical string data)*
-- `median_house_value`
-
 ## 1. Importing and Exploring the Data
 
 ```{r}
 library(tidyverse)
+library(hexbin)
+library(ggridges)
+library(viridisLite)
+library(GGally)
+
 
 url <- "https://ewan.my/datasets/housing.csv"
 df <- read_csv(url)
@@ -33,23 +23,9 @@ df <- read_csv(url)
 
 ---
 
-Let's take a quick look at the first few rows and summary statistics of the dataset.
+## 2. Data Cleaning
 
-```{r}
-head(df)
-
-summary(df)
-
-glimpse(df)
-```
-
----
-
-## 2. Data Cleaning and Processing
-
-### 2.1 Checking for Missing Values
-
-We'll check if there are any missing values in the dataset, especially in columns like `total_bedrooms`.
+finding missing values:
 
 ```{r}
 missing_values <- colSums(is.na(df))
@@ -57,9 +33,7 @@ cat("Missing values in each column:\n")
 print(missing_values)
 ```
 
-### 2.2 Handling Missing Values
-
-For columns with missing values (for example, `total_bedrooms`), you might decide to fill them with the median value, drop those rows, or apply another strategy.
+replacing missing values with median:
 
 ```{r}
 if (missing_values["total_bedrooms"] > 0) {
@@ -69,61 +43,43 @@ if (missing_values["total_bedrooms"] > 0) {
 }
 ```
 
-### 2.3 Converting Categorical Data
-
-Since `ocean_proximity` is a string, you might want to encode it before running numerical analyses or machine learning algorithms. One common method is one-hot encoding.
-
-```{r}
-df_encoded <- df %>%
-  mutate(across(ocean_proximity, as.factor)) %>%
-  mutate(ocean_proximity = as.factor(ocean_proximity))
-
-ocean_dummies <- model.matrix(~ ocean_proximity - 1, data = df_encoded)
-colnames(ocean_dummies) <- paste0("ocean_", levels(df_encoded$ocean_proximity))
-
-df_encoded <- cbind(df_encoded, as.data.frame(ocean_dummies))
-
-cat("Columns after encoding:\n")
-colnames(df_encoded)
-```
-
 ---
 
 ## 3. Data Visualization
 
-### 3.1 Histogram of Housing Median Age
-
-Let's start with a histogram to understand the distribution of the `housing_median_age`.
+Scatterplot with line of best fit:
 
 ```{r}
-ggplot(df, aes(x = housing_median_age)) +
-  geom_histogram(bins = 20, color = "black", fill = "lightblue") +
+key_feats <- c("median_income",
+               "housing_median_age",
+               "total_rooms",
+               "total_bedrooms",
+               "population",
+               "households")
+
+set.seed(123)
+df_samp <- df %>% sample_n(10000)
+
+plot_df <- df_samp %>%
+  pivot_longer(all_of(key_feats),
+               names_to  = "feature",
+               values_to = "value")
+ ggplot(plot_df, aes(x = value, y = median_house_value)) +
+  geom_point(alpha = 0.20, size = 0.6) +                
+  geom_smooth(method = "loess", se = FALSE,
+              colour = "firebrick", linewidth = 0.9) + 
+  facet_wrap(~ feature, ncol = 3, scales = "free_x") +
+  scale_y_continuous(labels = scales::dollar_format()) +
   labs(
-    title = "Distribution of Housing Median Age",
-    x = "Housing Median Age",
-    y = "Frequency"
+    title = "How six key features shape California house prices",
+    x     = "Feature value",
+    y     = "Median house value"
   ) +
-  theme_minimal()
+  theme_minimal(base_size = 11) +
+  theme(panel.spacing = unit(10, "pt"))
 ```
 
-### 3.2 Scatter Plot: Median Income vs. Median House Value
-
-A scatter plot can be useful to observe potential relationships between `median_income` and `median_house_value`.
-
-```{r}
-ggplot(df, aes(x = median_income, y = median_house_value)) +
-  geom_point(alpha = 0.5) +
-  labs(
-    title = "Median Income vs. Median House Value",
-    x = "Median Income",
-    y = "Median House Value"
-  ) +
-  theme_minimal()
-```
-
-### 3.3 Geographical Plot: Locations by House Value
-
-For a more geographic perspective, you can create a scatter plot of the properties using `longitude` and `latitude`. You might color the points by `median_house_value`.
+Plotting Lat/Long for media house value
 
 ```{r}
 ggplot(df, aes(x = longitude, y = latitude, color = median_house_value)) +
@@ -138,34 +94,84 @@ ggplot(df, aes(x = longitude, y = latitude, color = median_house_value)) +
   theme_minimal()
 ```
 
----
-
-## 4. Additional Analysis Ideas
-
-- **Relationship Analysis:** Consider plotting total rooms vs. population, or households vs. population.
-    
-- **Box Plots:** To understand the distribution within groups, use box plots for variables segmented by `ocean_proximity`.
-    
-- **Correlation Matrix:** Generate a heatmap to visualize the correlation between different numerical variables.
-    
+Plotting Lat/Long with multi-dimensional color coding
 
 ```{r}
-numeric_df <- df %>% select(where(is.numeric))
-corr_matrix <- cor(numeric_df, use = "complete.obs")
-cat("Correlation matrix:\n")
-print(corr_matrix)
+# special library for bi-color enconding
+library(biscale)
 
-library(corrplot)
-corrplot(corr_matrix, method = "circle")
+# bundeling the data as a two variable class
+bi_df <- bi_class(df,
+  x = median_income, y = median_house_value,
+  style = "quantile", dim = 3
+)
+
+# ggplotting the data
+map <- ggplot(bi_df, aes(longitude, latitude)) +
+  geom_point(aes(color = bi_class), size = 0.4, alpha = 0.6) + 
+  # for the multidimensional color encoding
+  
+  # for pink/blue color theme
+  bi_scale_color(pal = "GrPink") +
+  bi_theme() +
+  
+  coord_fixed(
+    ratio = 1.3, xlim = c(min(bi_df$longitude) - 0.5, max(bi_df$longitude) + 0.5),
+    ylim = c(min(bi_df$latitude) - 0.5, max(bi_df$latitude) + 0.5)
+  ) +
+  theme(
+    plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm")
+  ) 
+
+# seperate legend for audienc
+legend <- bi_legend(
+  pal = "GrPink",
+  dim = 3,
+  xlab = "Higher Income ",
+  ylab = "Higher House Value ",
+  size = 8
+)
+
+# Print both map and legend
+map
+legend
+```
+
+Plotting distribution for ocean proximity, as we cant use it anywhere else.
+
+Density ridges (aka “joy plots”) give side-by-side distribution shapes instead of just quartiles.
+
+```{r}
+# library i found to encode categorical variables
+library(ggridges)
+
+# converting ocean prox to a factor
+ggplot(df, aes(median_house_value, ocean_proximity, fill = ocean_proximity)) +
+  geom_density_ridges(
+    scale = 3,
+    rel_min_height = 0.01,
+    alpha = .8,
+    quantile_lines = TRUE,
+    quantiles = 2 # makes sure to show median
+  ) +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  scale_fill_viridis_d(option = "C") +
+  labs(
+    title = "Home-value distributions by distance to the ocean",
+    x = "Median house value", y = NULL
+  ) +
+  theme_ridges() +
+  theme(legend.position = "none")
 ```
 
 
-## 5. Machine learning analysis
 
-### 5.1 Linear Regression Model
+
+## 4. Machine learning analysis
+
+### 4.1 Linear Regression Model
 
 ```{r}
-
 # Linear regression using key numerical predictors
 lm_model <- lm(median_house_value ~ median_income + housing_median_age + total_rooms + total_bedrooms + population + households, data = ml_df)
 
@@ -195,7 +201,7 @@ The linear regression model shows that `median_income` has a strong positive rel
 
 
 
-### 5.2 Classification tree
+### 4.2 Classification tree
 ```{r}
 install.packages(rpart.plot)
 library(rpart)
@@ -203,8 +209,10 @@ library(rpart.plot)
 
 # Create a binary variable for classification
 ml_df <- ml_df %>%
-  mutate(high_value = ifelse(median_house_value > median(median_house_value), "High", "Low"),
-         high_value = as.factor(high_value))
+  mutate(
+    high_value = ifelse(median_house_value > median(median_house_value), "High", "Low"),
+    high_value = as.factor(high_value)
+  )
 
 # Fit a classification tree
 class_tree <- rpart(
@@ -217,7 +225,6 @@ class_tree <- rpart(
 
 # Plot the tree
 rpart.plot(class_tree, type = 3, extra = 104, fallen.leaves = TRUE, main = "Classification Tree for High vs Low Value Homes")
-
 ```
 
 **Why this method?**
@@ -228,15 +235,15 @@ The classification tree identified median_income and ocean_proximity as importan
 
 
 
-### 5.3 Regression Tree
+### 4.3 Regression Tree
 ```{r}
 # Fit a regression tree to predict house value
-reg_tree <- rpart(median_house_value ~ median_income + housing_median_age + total_rooms + total_bedrooms + population + households, 
-                  data = ml_df, method = "anova")
+reg_tree <- rpart(median_house_value ~ median_income + housing_median_age + total_rooms + total_bedrooms + population + households,
+  data = ml_df, method = "anova"
+)
 
 # Plot the regression tree
 rpart.plot(reg_tree, type = 3, fallen.leaves = TRUE, main = "Regression Tree for Predicting Median House Value")
-
 ```
 
 **Why this method?**
